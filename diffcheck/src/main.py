@@ -30,5 +30,12 @@ additions = [
     )
 ]
 
-print(json.dumps([token.text for token in removals], indent=2))
-print(json.dumps([token.text for token in additions], indent=2))
+additional_words = sum(
+    1 for token in additions
+    if token.is_word
+)
+
+word_count = additional_words + len(matches)
+
+print(len(matches))
+print(additional_words)
