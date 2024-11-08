@@ -10,7 +10,7 @@ class TestToken(unittest.TestCase):
         self.assertEqual(token.text, "hello")
         self.assertEqual(token.start, 0)
         self.assertEqual(token.end, 4)
-        self.assertEqual(token.region, range(0, 5))
+        self.assertEqual(token.bounds, (0, 4))
 
     def test_is_word(self):
         token = Token("hello", 0)

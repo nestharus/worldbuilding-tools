@@ -1,14 +1,14 @@
 class Token:
     text: str
-    region: range
+    bounds: tuple[int, int]
 
     def __init__(self, text: str, start: int):
         self.text = text
-        self.region = range(start, start + len(text))
+        self.bounds = (start, start + len(text) - 1)
 
     @property
     def is_word(self) -> bool:
-        return self.text.isalpha()
+        return self.text.isalnum()
 
     @property
     def is_punctuation(self) -> bool:
@@ -16,11 +16,11 @@ class Token:
 
     @property
     def start(self) -> int:
-        return self.region.start
+        return self.bounds[0]
 
     @property
     def end(self) -> int:
-        return self.region.stop - 1
+        return self.bounds[1]
 
     def __repr__(self):
         return f"Token(text='{self.text}', start={self.start}, end={self.end})"
@@ -32,10 +32,10 @@ class Token:
         return self.text != other.text
 
     def __hash__(self):
-        return hash((self.text, self.region.start, self.region.stop))
+        return hash((self.text, self.bounds))
 
     def __len__(self):
-        return len(self.region)
+        return self.bounds[1] - self.bounds[0] + 1
 
     def __getitem__(self, key):
         return self.text[key]

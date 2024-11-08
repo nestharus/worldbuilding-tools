@@ -1,4 +1,8 @@
+from itertools import islice
+from typing import Generator
+
 from tokenizer.token import Token
+from tokenizer.token_sequence import TokenSequence
 
 
 def find_token_matches(text, tokens) -> list[int]:
@@ -8,117 +12,78 @@ def find_token_matches(text, tokens) -> list[int]:
 
 
 class Match:
-    source_tokens_left: list[Token]
-    source_tokens_right: list[Token]
-    token_distance: int
-    token_length: int
-    left_region: range
-    right_region: range
+    left: TokenSequence
+    right: TokenSequence
+    distance: int
 
     def __init__(
         self,
-        left_start_index: int,
-        right_start_index: int,
-        source_tokens_left: list[Token],
-        source_tokens_right: list[Token],
-        token_distance: int,
-        token_length: int
+        left: TokenSequence,
+        right: TokenSequence,
+        distance: int
     ):
-        self.source_tokens_left = source_tokens_left
-        self.source_tokens_right = source_tokens_right
-        self.left_region = range(left_start_index, left_start_index + token_length)
-        self.right_region = range(right_start_index, right_start_index + token_length)
-        self.token_distance = token_distance
-        self.token_length = token_length
+        self.left = left
+        self.right = right
+        self.distance = distance
 
     def __repr__(self) -> str:
-        return f"Match({self.left_start}, {self.right_start}, {self.token_distance}, {self.token_length})"
+        return f"Match({self.left}, {self.right}, {self.distance})"
 
-    def __lt__(self, other) -> bool:
-        if self.token_length != other.token_length:
-            return self.token_length < other.token_length
-        return self.token_distance < other.token_distance
+    def __lt__(self, other: 'Match') -> bool:
+        if len(self.left) != len(other.left):
+            return len(self.left) < len(other.left)
+        return self.distance < other.distance
 
-    def __eq__(self, other) -> bool:
-        return self.token_length == other.token_length and self.token_distance == other.token_distance
+    def __eq__(self, other: 'Match') -> bool:
+        return len(self.left) == len(other.left) and self.distance == other.distance
 
-    def __ne__(self, other) -> bool:
-        return self.token_length != other.token_length or self.token_distance != other.token_distance
+    def __ne__(self, other: 'Match') -> bool:
+        return len(self.left) != len(other.left) or self.distance != other.distance
 
-    def __gt__(self, other) -> bool:
-        if self.token_length != other.token_length:
-            return self.token_length > other.token_length
-        return self.token_distance > other.token_distance
+    def __gt__(self, other: 'Match') -> bool:
+        if len(self.left) != len(other.left):
+            return len(self.left) > len(other.left)
+        return self.distance > other.distance
 
-    def intersects_left(self, other) -> bool:
-        return self.left_region.start < other.left_region.stop and other.left_region.start < self.left_region.stop
+    def intersects(self, other: 'Match') -> bool:
+        return self.left.intersects(other.left) or self.right.intersects(other.right)
 
-    def intersects_right(self, other) -> bool:
-        return self.right_region.start < other.right_region.stop and other.right_region.start < self.right_region.stop
+    def left_intersects_token(self, other: Token) -> bool:
+        return self.left.intersects_token(other)
 
-    def intersects(self, other) -> bool:
-        return self.intersects_left(other) or self.intersects_right(other)
-
-    def token_intersects_left(self, token: Token) -> bool:
-        return token.end >= self.left_start_token.start and token.start <= self.left_end_token.end
-
-    def token_intersects_right(self, token: Token) -> bool:
-        return token.end >= self.right_start_token.start and token.start <= self.right_end_token.end
-
-    @property
-    def left_start(self) -> int:
-        return self.left_region.start
-
-    @property
-    def right_start(self) -> int:
-        return self.right_region.start
-
-    @property
-    def left_start_token(self) -> Token:
-        return self.source_tokens_left[self.left_start]
-
-    @property
-    def right_start_token(self) -> Token:
-        return self.source_tokens_right[self.right_start]
-
-    @property
-    def left_end_token(self) -> Token:
-        return self.source_tokens_left[self.left_region.stop - 1]
-
-    @property
-    def right_end_token(self) -> Token:
-        return self.source_tokens_right[self.right_region.stop - 1]
-
-    @property
-    def text_length(self) -> int:
-        return self.left_end_token.end - self.left_start_token.start + 1
-
-    @property
-    def word_count(self) -> int:
-        return sum(
-            1
-            for i in self.left_region
-            if self.source_tokens_left[i].is_word
-        )
-
-    @property
-    def is_legal(self):
-        return self.word_count >= 2
-
-    @property
-    def left_text(self):
-        return "".join(self.source_tokens_left[token_index].text for token_index in self.left_region)
-
-    @property
-    def right_text(self):
-        return "".join(self.source_tokens_right[token_index].text for token_index in self.right_region)
+    def right_intersects_token(self, other: Token) -> bool:
+        return self.right.intersects_token(other)
 
     def __iter__(self):
-        for token_index in self.left_region:
-            yield self.source_tokens_left[token_index]
+        return iter(self.left)
 
     def __len__(self):
-        return self.token_length
+        return len(self.left)
+
+    @staticmethod
+    def matches_to_blocks(matches: list['Match']) -> tuple[list[object], list[object]]:
+        left_blocks = [
+            object()
+            for _ in matches
+        ]
+        right_blocks = [
+            (match.right.start_token_index, left_blocks[index])
+            for index, match in enumerate(matches)
+        ]
+        right_blocks.sort(key=lambda x: x[0])
+        right_blocks = [
+            right_block[1]
+            for right_block in right_blocks
+        ]
+        return left_blocks, right_blocks
+
+    @staticmethod
+    def blocks_to_indices(blocks: list[tuple[int, int]]) -> Generator[int, int, None]:
+        return (
+            index
+            for block in blocks
+            for index in range(block[0], block[1] + 1)
+        )
 
     @staticmethod
     def compute_match_length(
@@ -127,13 +92,12 @@ class Match:
         left_start: int,
         right_start: int
     ) -> int:
-        left_len = len(left_tokens)
-        right_len = len(right_tokens)
         match_length = 0
 
-        while (left_start + match_length < left_len and
-               right_start + match_length < right_len and
-               left_tokens[left_start + match_length].text == right_tokens[right_start + match_length].text):
+        for left, right in zip(islice(left_tokens, left_start, None), islice(right_tokens, right_start, None)):
+            if left.text != right.text:
+                break
+
             match_length += 1
 
         return match_length
