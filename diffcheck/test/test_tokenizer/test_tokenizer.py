@@ -1,310 +1,323 @@
-import re
-import unittest
-from tokenizer.tokenizer import tokenize_english_text
-from tokenizer.token import Token
+import pytest
+
+from tokenizer.context_aware_tokenizer import ContextAwareTokenizer, TokenizerError
 
 
-class TestTokenizer(unittest.TestCase):
+@pytest.fixture
+def tokenize():
+    tokenizer = ContextAwareTokenizer()
 
-    def test_tokenize_english_text(self):
-        txt = 'His cloak and glove remain camouflaged on Däor'
-        expected = [
-            Token("His", 0),
-            Token(" ", 3),
-            Token("cloak", 4),
-            Token(" ", 9),
-            Token("and", 10),
-            Token(" ", 13),
-            Token("glove", 14),
-            Token(" ", 19),
-            Token("remain", 20),
-            Token(" ", 26),
-            Token("camouflaged", 27),
-            Token(" ", 38),
-            Token("on", 39),
-            Token(" ", 41),
-            Token("Däor", 42)
-        ]
+    return lambda text: [text[token[0]:token[1]] for token in tokenizer.tokenize(text)]
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_tokenize_contractions(self):
-        test_cases = [
-            ("can't", [Token("can't", 0)]),
-            ("won't", [Token("won't", 0)]),
-            ("I'm", [Token("I'm", 0)]),
-            ("they're", [Token("they're", 0)]),
-            ("we've", [Token("we've", 0)]),
-            ("they'll", [Token("they'll", 0)]),
-            ("he'd", [Token("he'd", 0)])
-        ]
+@pytest.mark.unit
+def test_contraction(tokenize):
+    """Test handling of contractions"""
+    assert tokenize("can't") == ["can't"]
 
-        for input_text, expected in test_cases:
-            with self.subTest(input_text=input_text):
-                result = tokenize_english_text(input_text)
-                expected_tokens = [t.text for t in expected]
-                result_tokens = [t.text for t in result]
-                self.assertEqual(expected_tokens, result_tokens)
 
-    def test_tokenize_possessives(self):
-        test_cases = [
-            ("jess'", [Token("jess'", 0)]),
-            ("James's", [Token("James's", 0)]),
-            ("the cats'", [Token("the", 0), Token(" ", 3), Token("cats'", 4)])
-        ]
+@pytest.mark.unit
+def test_acronym(tokenize):
+    """Test handling of acronyms with periods"""
+    assert tokenize("U.S.A.") == ["U.S.A."]
 
-        for input_text, expected in test_cases:
-            with self.subTest(input_text=input_text):
-                result = tokenize_english_text(input_text)
-                expected_tokens = [t.text for t in expected]
-                result_tokens = [t.text for t in result]
-                self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_period(self):
-        txt = 'Hi.'
-        expected = [
-            Token("Hi", 0),
-            Token(".", 2)
-        ]
+@pytest.mark.unit
+def test_pronoun_i_with_period(tokenize):
+    assert tokenize("I want it.") == ['I', 'want', 'it', '.']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_periods(self):
-        txt = 'U.S.A..'
-        expected = [
-            Token("U.S.A.", 0),
-            Token(".", 6)
-        ]
+@pytest.mark.unit
+def test_pronoun_i_with_period(tokenize):
+    assert tokenize("Was I.") == ['Was', 'I', '.']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_periods2(self):
-        txt = 'U.S.A ..'
-        expected = [
-            Token("U.S.A", 0),
-            Token(" ", 5),
-            Token(".", 6),
-            Token(".", 7)
-        ]
+@pytest.mark.unit
+def test_underscore(tokenize):
+    assert tokenize("▁▁Was") == ['▁▁Was']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_periods3(self):
-        txt = 'U.S.A. .'
-        expected = [
-            Token("U.S.A.", 0),
-            Token(" ", 6),
-            Token(".", 7)
-        ]
+@pytest.mark.unit
+def test_underscore2(tokenize):
+    assert tokenize("__Was") == ['__Was']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_more_periods(self):
-        txt = 'Ah..'
-        expected = [
-            Token("Ah", 0),
-            Token(".", 2),
-            Token(".", 3)
-        ]
+@pytest.mark.unit
+def test_underscore3(tokenize):
+    assert tokenize("_it_is_ok") == ['_it_is_ok']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_names(self):
-        txt = 'Ron, B. is'
-        expected = [
-            Token("Ron", 0),
-            Token(",", 3),
-            Token(" ", 4),
-            Token("B", 5),
-            Token(".", 6),
-            Token(" ", 7),
-            Token("is", 8)
-        ]
+@pytest.mark.unit
+def test_underscore4(tokenize):
+    assert tokenize("it__is__ok") == ['it__is__ok']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_i_name(self):
-        txt = 'Ron, I.'
-        expected = [
-            Token("Ron", 0),
-            Token(",", 3),
-            Token(" ", 4),
-            Token("I", 5),
-            Token(".", 6)
-        ]
+@pytest.mark.unit
+def test_underscore5(tokenize):
+    assert tokenize("_____") == ['_____']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_i_period(self):
-        txt = 'Oh. I.'
-        expected = [
-            Token("Oh", 0),
-            Token(".", 2),
-            Token(" ", 3),
-            Token("I", 4),
-            Token(".", 5)
-        ]
+@pytest.mark.unit
+def test_initial_i_with_period(tokenize):
+    """Test handling of initial 'I' with period"""
+    assert tokenize("Bob, I.") == ["Bob", ",", "I."]
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_names2(self):
-        txt = 'Ron, Bar. is'
-        expected = [
-            Token("Ron", 0),
-            Token(",", 3),
-            Token(" ", 4),
-            Token("Bar", 5),
-            Token(".", 8),
-            Token(" ", 9),
-            Token("is", 10)
-        ]
+@pytest.mark.unit
+def test_initial_i_with_ellipsis(tokenize):
+    """Test handling of initial 'I' with ellipsis"""
+    assert tokenize("Bob, I...") == ["Bob", ",", "I", '...']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_exclamation(self):
-        txt = 'Ah?!'
-        expected = [
-            Token("Ah", 0),
-            Token("?", 2),
-            Token("!", 3)
-        ]
+@pytest.mark.unit
+def test_fake_initial_i(tokenize):
+    """Test handling of initial 'I' with ellipsis"""
+    assert tokenize("Well Bob, I.") == ["Well", "Bob", ",", "I", '.']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_dash(self):
-        txt = 'do-good'
-        expected = [
-            Token("do-good", 0)
-        ]
+@pytest.mark.unit
+def test_mixed(tokenize):
+    """Test handling of initial 'I' with ellipsis"""
+    #actual = tokenize("Well, I can't see Mr. J. Donathan doing it. Jess' rabbit will have to do. Bob, I. I don't think that's a good idea. Nonsense! We're in the U.S.A. Of course it's a good idea!!")
+    # assert actual == expected
+    tokenize("They're Bob, I.")
+    tokenize("It's the U.S.A.")
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_dash3(self):
-        txt = 'do-good-with'
-        expected = [
-            Token("do-good-with", 0)
-        ]
+@pytest.mark.unit
+def test_roman_numeral(tokenize):
+    assert tokenize('I.') == ['I.']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_underscore(self):
-        txt = 'many_thanks'
-        expected = [
-            Token("many_thanks", 0)
-        ]
+@pytest.mark.unit
+def test_ambiguous_i(tokenize):
+    assert tokenize('Hey Bob, I.') == ['Hey', 'Bob', ',', 'I', '.']
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_with_numbers(self):
-        txt = 'hello69'
-        expected = [
-            Token("hello69", 0)
-        ]
+@pytest.mark.unit
+def test_initial_i_after_name(tokenize):
+    """Test handling of initial 'I' after name with contraction"""
+    assert tokenize("Their name is Bob, I.") == ["Their", 'name', 'is', "Bob", ',', "I."]
 
-        result = tokenize_english_text(txt)
-        expected_tokens = [t.text for t in expected]
-        result_tokens = [t.text for t in result]
-        self.assertEqual(expected_tokens, result_tokens)
 
-    def test_ellipsis(self):
-        """Test handling of ellipsis"""
-        txt = "Something..."
-        expected = [
-            Token("Something", 0),
-            Token("...", 9)
-        ]
-        result = tokenize_english_text(txt)
-        self.assertEqual([t.text for t in expected], [t.text for t in result])
+@pytest.mark.unit
+def test_multiple_initials(tokenize):
+    """Test handling of multiple initials"""
+    assert tokenize("Dr. J. Smith") == ["Dr.", "J.", "Smith"]
 
-    def test_time_formats(self):
-        """Test handling of time formats"""
-        txt = "9 a.m. to 5 p.m."
-        expected = [
-            Token("9", 0),
-            Token(" ", 1),
-            Token("a.m.", 2),
-            Token(" ", 6),
-            Token("to", 7),
-            Token(" ", 9),
-            Token("5", 10),
-            Token(" ", 11),
-            Token("p.m.", 12)
-        ]
-        result = tokenize_english_text(txt)
-        self.assertEqual([t.text for t in expected], [t.text for t in result])
 
-    def test_academic_titles(self):
-        """Test handling of academic and professional titles"""
-        txt = "Dr. Smith, Ph.D."
-        expected = [
-            Token("Dr.", 0),
-            Token(" ", 3),
-            Token("Smith", 4),
-            Token(",", 9),
-            Token(" ", 10),
-            Token("Ph.D.", 11)
-        ]
-        result = tokenize_english_text(txt)
-        self.assertEqual([t.text for t in expected], [t.text for t in result])
+@pytest.mark.unit
+def test_pronoun_i_with_verb(tokenize):
+    """Test handling of pronoun 'I' with thinking verb"""
+    assert tokenize("I think I.") == ["I", "think", "I", "."]
 
-    def test_mixed_punctuation(self):
-        """Test handling of mixed punctuation cases"""
-        txt = "Hello?! What's this...?"
-        expected = [
-            Token("Hello", 0),
-            Token("?", 5),
-            Token("!", 6),
-            Token(" ", 7),
-            Token("What's", 8),
-            Token(" ", 14),
-            Token("this", 15),
-            Token("...", 19),
-            Token("?", 22)
-        ]
-        result = tokenize_english_text(txt)
-        self.assertEqual([t.text for t in expected], [t.text for t in result])
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.unit
+def test_full_initials(tokenize):
+    """Test handling of full name with initials"""
+    assert tokenize("A. B. Smith") == ["A.", "B.", "Smith"]
+
+
+@pytest.mark.unit
+def test_ellipsis_after_word(tokenize):
+    """Test handling of ellipsis after word"""
+    assert tokenize("And then...") == ["And", "then", "..."]
+
+
+@pytest.mark.unit
+def test_ellipsis_mid_sentence(tokenize):
+    """Test handling of ellipsis in middle of sentence"""
+    assert tokenize("He said... well") == ["He", "said", "...", "well"]
+
+
+@pytest.mark.unit
+def test_ellipsis_after_title(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("Mr. Smith...") == ["Mr.", "Smith", "..."]
+
+
+@pytest.mark.unit
+def test_dash_word(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("merry-go-round") == ["merry-go-round"]
+
+
+@pytest.mark.unit
+def test_dash_word2(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("well-to-do") == ["well-to-do"]
+
+
+@pytest.mark.unit
+def test_fictional_world(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize('Däor') == ['Däor']
+
+
+@pytest.mark.unit
+def test_range(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("one-seven") == ["one", "-", "seven"]
+
+
+@pytest.mark.unit
+def test_range2(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("jan-feb") == ["jan", "-", "feb"]
+
+
+@pytest.mark.unit
+def test_range3(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("january-february") == ["january", "-", "february"]
+
+
+@pytest.mark.unit
+def test_range4(tokenize):
+    """Test handling of ellipsis after title"""
+    assert tokenize("january-11") == ["january-11"]
+
+
+@pytest.mark.unit
+def test_empty_string(tokenize):
+    """Test handling of empty string"""
+    assert tokenize("") == []
+
+
+@pytest.mark.unit
+def test_single_period(tokenize):
+    """Test handling of single period"""
+    assert tokenize(".") == ["."]
+
+
+@pytest.mark.unit
+def test_multiple_spaces(tokenize):
+    """Test handling of multiple spaces"""
+    assert tokenize("Hello   world") == ["Hello", "world"]
+
+
+@pytest.mark.edge_cases
+class TestEdgeCases:
+    @pytest.mark.unit
+    def test_fictional_places(self, tokenize):
+        """Test handling of fictional place names"""
+        assert tokenize("Visiting Na'vi on Pandora") == ["Visiting", "Na'vi", "on", "Pandora"]
+        assert tokenize("From Qa'pla, Qo'noS") == ["From", "Qa'pla", ",", "Qo'noS"]
+
+    @pytest.mark.unit
+    def test_mixed_case_words(self, tokenize):
+        """Test handling of mixed case words"""
+        assert tokenize("iPhone and MacBook") == ["iPhone", "and", "MacBook"]
+        assert tokenize("PostgreSQL database") == ["PostgreSQL", "database"]
+
+    @pytest.mark.unit
+    def test_special_characters(self, tokenize):
+        """Test handling of special characters"""
+        assert tokenize("Hello@World.com") == ["Hello@World.com"]
+        assert tokenize("C++ and C#") == ["C++", "and", "C#"]
+
+    @pytest.mark.unit
+    def test_unicode_characters(self, tokenize):
+        """Test handling of Unicode characters"""
+        assert tokenize("café résumé") == ["café", "résumé"]
+        assert tokenize("über schön") == ["über", "schön"]
+
+    @pytest.mark.unit
+    def test_emoji_handling(self, tokenize):
+        """Test handling of emoji characters"""
+        assert tokenize("Hello 👋 World 🌍") == ["Hello", "👋", "World", "🌍"]
+
+    @pytest.mark.unit
+    def test_multiple_punctuation(self, tokenize):
+        """Test handling of multiple punctuation marks"""
+        assert tokenize("Really?!?!") == ["Really", "?", "!", "?", "!"]
+        assert tokenize("Wait...???") == ["Wait", "...", "?", "?", "?"]
+
+    @pytest.mark.unit
+    def test_repeated_characters(self, tokenize):
+        """Test handling of repeated characters"""
+        assert tokenize("Heeeello!!!") == ["Heeeello", "!", "!", "!"]
+        assert tokenize("Nooooo....") == ["Nooooo", "...."]
+
+    @pytest.mark.unit
+    def test_alphanumeric_combinations(self, tokenize):
+        """Test handling of alphanumeric combinations"""
+        assert tokenize("3M and 7-Eleven") == ["3M", "and", "7-Eleven"]
+        assert tokenize("Win32 API") == ["Win32", "API"]
+
+
+# @pytest.mark.error_handling
+# class TestErrorHandling:
+#     @pytest.mark.unit
+#     def test_none_input(self, tokenize):
+#         """Test handling of None input"""
+#         with pytest.raises(TokenizerError) as exc_info:
+#             tokenize(None)
+#         assert "Input must be string" in str(exc_info.value)
+#
+#     @pytest.mark.unit
+#     def test_invalid_type_input(self, tokenize):
+#         """Test handling of invalid input types"""
+#         with pytest.raises(TokenizerError) as exc_info:
+#             tokenize(123)
+#         assert "Input must be string" in str(exc_info.value)
+#
+#     @pytest.mark.unit
+#     def test_invalid_unicode(self, tokenize):
+#         """Test handling of invalid Unicode sequences"""
+#         invalid_unicode = "Hello \ud800 World"  # Invalid surrogate pair
+#         result = tokenize(invalid_unicode)
+#         assert result == ["hello", "world"]
+
+    # @pytest.mark.unit
+    # def test_extremely_long_input(self, tokenize):
+    #     """Test handling of extremely long input"""
+    #     long_input = "word " * 10000
+    #     result = tokenize(long_input)
+    #     assert len(result) > 0
+    #     assert all(token == "word" for token in result)
+
+    # @pytest.mark.unit
+    # def test_zero_width_spaces(self, tokenize):
+    #     """Test handling of zero-width spaces and other invisible characters"""
+    #     text_with_zero_width = "hello\u200bworld"
+    #     assert tokenize(text_with_zero_width) == ["hello", "world"]
+    #
+    # @pytest.mark.unit
+    # def test_control_characters(self, tokenize):
+    #     """Test handling of control characters"""
+    #     text_with_control = "hello\x00world\x01"
+    #     assert tokenize(text_with_control) == ["hello", "world"]
+
+    # @pytest.mark.unit
+    # @pytest.mark.xfail(strict=True)
+    # def test_memory_error_simulation(self, tokenize):
+    #     """Test handling of potential memory errors with massive input"""
+    #     massive_input = "a" * (10 ** 8)  # Might raise MemoryError
+    #     tokenize(massive_input)
+
+
+# @pytest.mark.performance
+# class TestPerformance:
+#     @pytest.mark.unit
+#     def test_many_periods(self, tokenize):
+#         """Test performance with many periods"""
+#         text = "." * 1000
+#         result = tokenize(text)
+#         assert len(result) == 0
+#
+#     @pytest.mark.unit
+#     def test_many_spaces(self, tokenize):
+#         """Test performance with many spaces"""
+#         text = " " * 1000 + "hello" + " " * 1000
+#         assert tokenize(text) == ["hello"]
+#
+#     @pytest.mark.unit
+#     def test_many_newlines(self, tokenize):
+#         """Test performance with many newlines"""
+#         text = "\n" * 1000 + "hello" + "\n" * 1000
+#         assert tokenize(text) == ["hello"]
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

@@ -160,3 +160,4 @@ docs/_build/latex/target/*.mka
 docs/_build/latex/target/*.mks
 docs/_build/latex/target/*.mka
 docs/_build/latex/target/*.mks
+.aider*
