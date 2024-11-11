@@ -420,7 +420,9 @@ class ContextAwareTokenizer:
 
         # print('Input: ', text)
         spacy_tokens = self.tokenize_with_spacy(text)
-        deberta_offsets = self.tokenizer(text, return_offsets_mapping=True)['offset_mapping'][1:-1]
+        deberta_output = self.tokenizer(text, return_offsets_mapping=True)
+        # deberta_ids = deberta_output['input_ids'][1:-1]
+        deberta_offsets = deberta_output['offset_mapping'][1:-1]
         deberta_tokens = self.tokenizer.tokenize(text)
         deberta_offsets = [
             (start + 1 if deberta_tokens[i].startswith('▁') and end - start > 1 else start, end)
@@ -444,7 +446,8 @@ class ContextAwareTokenizer:
             if token.pos_ in {'PRON'} and len(deberta_tokens) > 1:
                 print('RULE 1: SPLIT')
                 for deberta_token in deberta_tokens:
-                    tokens.append((*deberta_token, token.pos_))
+                    new_token = self.tokenize_with_spacy(deberta_token[2])[-1]
+                    tokens.append((*deberta_token, new_token.pos_))
                 i += 1
                 continue
 
@@ -531,9 +534,33 @@ class ContextAwareTokenizer:
 
             i += 1
 
+        tokens = [
+            token
+            for token in tokens
+            if token[3] not in {'UNDERSCORE', 'PUNCT'}
+        ]
+
         print(tokens)
 
-        return [(token[0], token[1]) for token in tokens]
+        token_text = [
+            text[token[0]:token[1]].lower()
+            for token in tokens
+        ]
+        token_ids = self.tokenizer.convert_tokens_to_ids(token_text)
+        unknown_tokens = [
+            token_text[i]
+            for i, token_id in enumerate(token_ids)
+            if token_id == self.unknown_token_id
+        ]
+        self.tokenizer.add_tokens(unknown_tokens)
+        token_ids = self.tokenizer.convert_tokens_to_ids(token_text)
+        tokens = [
+            (token[0], token[1], token_ids[i])
+            for i, token in enumerate(tokens)
+        ]
+        print(tokens)
+
+        return tokens
 
 
 
