@@ -242,12 +242,16 @@ class ModelInstaller:
     def install_hf_model(self, model_name: str, force_update: bool = False) -> bool:
         """Install a Hugging Face model."""
         try:
-            # Define fallback models from smallest to largest
-            model_options = [
-                "microsoft/deberta-v3-xsmall",  # Try smallest first
-                "microsoft/deberta-v3-small",
-                model_name  # Original requested model as last resort
-            ]
+            # Start with requested model, then try fallbacks if it fails
+            model_options = [model_name]  # Try requested model first
+            
+            # Only add fallbacks if the requested model isn't already one
+            if model_name not in ["microsoft/deberta-v3-xsmall", "microsoft/deberta-v3-small"]:
+                model_options.extend([
+                    "microsoft/deberta-v3-base",  # Try base model first
+                    "microsoft/deberta-v3-small",
+                    "microsoft/deberta-v3-xsmall"  # Smallest as last resort
+                ])
             
             for current_model in model_options:
                 try:
