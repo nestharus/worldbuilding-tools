@@ -242,22 +242,41 @@ class ModelInstaller:
     def install_hf_model(self, model_name: str, force_update: bool = False) -> bool:
         """Install a Hugging Face model."""
         try:
-            needs_update = force_update
-            if not force_update and f"hf_{model_name}" in self.versions:
-                model_dir = self.cache_dir / model_name.replace('/', '-')
-                safetensors_path = model_dir / "model.safetensors"
-                
-                if safetensors_path.exists():
-                    size_gb = safetensors_path.stat().st_size / (1024**3)
-                    if size_gb >= 0.1:  # 100MB minimum
-                        self.logger.info(f"Found existing model.safetensors: {size_gb:.2f} GB")
-                        needs_update = self._check_hf_model_update(model_name)
-                        if not needs_update:
-                            self.logger.info(f"Model {model_name} is up to date")
+            # Define fallback models from smallest to largest
+            model_options = [
+                "microsoft/deberta-v3-xsmall",  # Try smallest first
+                "microsoft/deberta-v3-small",
+                model_name  # Original requested model as last resort
+            ]
+            
+            for current_model in model_options:
+                try:
+                    needs_update = force_update
+                    if not force_update and f"hf_{current_model}" in self.versions:
+                        model_dir = self.cache_dir / current_model.replace('/', '-')
+                        
+                        # Check for either safetensors or pytorch format
+                        model_files = ["model.safetensors", "pytorch_model.bin"]
+                        model_found = False
+                        
+                        for model_file in model_files:
+                            model_path = model_dir / model_file
+                            if model_path.exists():
+                                size_gb = model_path.stat().st_size / (1024**3)
+                                if size_gb >= 0.1:  # 100MB minimum
+                                    self.logger.info(f"Found existing {model_file}: {size_gb:.2f} GB")
+                                    needs_update = self._check_hf_model_update(current_model)
+                                    model_found = True
+                                    break
+                                    
+                        if model_found and not needs_update:
+                            self.logger.info(f"Model {current_model} is up to date")
                             return True
-                        self.logger.info(f"Updates available for {model_name}")
+                            
+                        if model_found:
+                            self.logger.info(f"Updates available for {current_model}")
 
-            self.logger.info(f"Downloading Hugging Face model: {model_name}")
+            self.logger.info(f"Downloading Hugging Face model: {current_model}")
             
             # DeBERTa models required files
             files_to_download = [
@@ -267,48 +286,22 @@ class ModelInstaller:
             ]
             
             # Check for model formats
-            safetensors_url = f"https://huggingface.co/{model_name}/resolve/main/model.safetensors"
-            pytorch_url = f"https://huggingface.co/{model_name}/resolve/main/pytorch_model.bin"
-            try:
-                # Try safetensors first
-                response = requests.head(safetensors_url)
-                if response.status_code == 200:
-                    self.logger.info("Safetensors model available")
-                    files_to_download.append("model.safetensors")
-                else:
-                    # Try PyTorch format
-                    response = requests.head(pytorch_url)
-                    if response.status_code == 200:
-                        self.logger.info("PyTorch model available")
-                        files_to_download.append("pytorch_model.bin")
-                    else:
-                        # Check if it's a connection issue vs actual missing file
-                        head_response = requests.head(f"https://huggingface.co/{model_name}/resolve/main/config.json")
-                    if head_response.status_code == 200:
-                        self.logger.warning(f"Safetensors format not found for {model_name}")
-                        # Try PyTorch format instead
-                        pytorch_url = f"https://huggingface.co/{model_name}/resolve/main/pytorch_model.bin"
-                        pytorch_response = requests.head(pytorch_url)
-                        if pytorch_response.status_code == 200:
-                            self.logger.info("PyTorch format available - using as fallback")
-                            files_to_download.append("pytorch_model.bin")
-                            return True
-                        else:
-                            # Try smaller model if current is large
-                            if "large" in model_name.lower():
-                                base_model = model_name.replace("large", "base")
-                                self.logger.info(f"Model formats unavailable, trying smaller model: {base_model}")
-                                return self.install_hf_model(base_model, force_update)
-                            elif "base" in model_name.lower():
-                                small_model = model_name.replace("base", "small")
-                                self.logger.info(f"Model formats unavailable, trying smaller model: {small_model}")
-                                return self.install_hf_model(small_model, force_update)
-                            else:
-                                self.logger.error("Neither safetensors nor PyTorch formats available")
-                                return False
-                    else:
-                        self.logger.error(f"Model {model_name} not found")
-                        return False
+            safetensors_url = f"https://huggingface.co/{current_model}/resolve/main/model.safetensors"
+            pytorch_url = f"https://huggingface.co/{current_model}/resolve/main/pytorch_model.bin"
+            
+            # Try both formats
+            safetensors_response = requests.head(safetensors_url)
+            pytorch_response = requests.head(pytorch_url)
+            
+            if safetensors_response.status_code == 200:
+                self.logger.info("Safetensors model available")
+                files_to_download.append("model.safetensors")
+            elif pytorch_response.status_code == 200:
+                self.logger.info("PyTorch model available")
+                files_to_download.append("pytorch_model.bin")
+            else:
+                self.logger.warning(f"No compatible model format found for {current_model}, trying next option")
+                continue  # Try next model in the list
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Error checking model availability: {e}")
                 if "large" in model_name.lower():
