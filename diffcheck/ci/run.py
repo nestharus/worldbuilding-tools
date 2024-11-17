@@ -29,9 +29,12 @@ async def main():
 
         # Create a directory to store models
         models_dir = setup.directory("/root/.cache/tokenizer_models")
-        spacy_dir = setup.directory("/usr/local/lib/python3.12/site-packages/en_core_web_lg")
+        
+        # Get all spacy model directories
+        spacy_base = "/usr/local/lib/python3.12/site-packages"
+        spacy_models = setup.directory(spacy_base, include=["en_core_web*"])
 
-        # Create runtime container
+        # Create runtime container 
         source = client.container().from_("python:3.12-slim")
 
         # Install dependencies and copy models to runtime container
@@ -44,7 +47,7 @@ async def main():
             .with_directory("/app", client.host().directory(".", exclude=["ci/", "test/"]))
             # Copy models from setup container
             .with_directory("/root/.cache/tokenizer_models", models_dir)
-            .with_directory("/usr/local/lib/python3.12/site-packages/en_core_web_lg", spacy_dir)
+            .with_directory("/usr/local/lib/python3.12/site-packages", spacy_models)
             .with_exec(["pipenv", "lock"])
             .with_exec(["pipenv", "install", "--deploy"])
             .with_exec(["pipenv", "run", "setup"])
