@@ -2,57 +2,58 @@ import sys
 import anyio
 import dagger
 
+
 async def build():
-    """Build the Docker image using Dagger"""
-    async with dagger.Connection(dagger.Config(log_output=sys.stderr)) as client:
-        # Get reference to the local project
-        src = client.host().directory(".")
-        
-        # Create Python container
-        python = (
-            client.container()
-            .from_("python:3.11-slim")
-            .with_workdir("/app")
-            .with_exec(["pip", "install", "pipenv"])
-            .with_directory("/app", src)
-            .with_exec(["pipenv", "install", "--deploy"])
-            .with_exec(["pipenv", "run", "setup"])
-            .with_env_variable("FLASK_ENV", "production")
-            .with_exposed_port(5000)
-            .with_entrypoint(["pipenv", "run", "start"])
-        )
+    async with dagger.Connection() as client:
+        # Get reference to the local project directory
+        src = client.host().directory(".", exclude=[
+            "dagger.cue",
+            ".git",
+            ".pytest_cache",
+            "__pycache__",
+            "*.pyc"
+        ])
+
+        # Build container
+        ctr = (client.container()
+               .from_("python:3.11-slim")
+               .with_workdir("/app")
+               .with_exec(["pip", "install", "pipenv"])
+               .with_directory(".", src)
+               .with_exec(["pipenv", "install", "--deploy"])
+               .with_exec(["pipenv", "run", "setup"])
+               .with_env("FLASK_ENV", "production")
+               .with_exposed_port(5000)
+               .with_entrypoint(["pipenv", "run", "start"]))
 
         # Export the container
-        await python.publish("diffcheck:latest")
-        print("Docker image built successfully")
-        return True
+        await ctr.publish("text-diff-app:latest")
+
 
 async def run():
-    """Run the Docker container"""
-    try:
-        import subprocess
-        subprocess.run([
-            "docker", "run",
-            "-p", "5000:5000",
-            "diffcheck:latest"
-        ], check=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error running Docker container: {e}")
-        return False
+    async with dagger.Connection() as client:
+        # Run the container
+        ctr = (client.container()
+               .from_("text-diff-app:latest")
+               .with_exposed_port(5000))
+        
+        await ctr.with_exec(["pipenv", "run", "start"]).sync()
 
-if __name__ == "__main__":
+
+async def main():
     if len(sys.argv) < 2:
         print("Usage: python dagger.py [build|run]")
         sys.exit(1)
-        
+
     command = sys.argv[1]
-    
     if command == "build":
-        anyio.run(build)
+        await build()
     elif command == "run":
-        anyio.run(run)
+        await run()
     else:
         print(f"Unknown command: {command}")
-        print("Available commands: build, run")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    anyio.run(main)
