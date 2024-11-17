@@ -1,0 +1,8 @@
+{
+  "name": "worldbuilding-tools",
+  "sdk": "python",
+  "root": ".",
+  "dependencies": [
+    "diffcheck/ci"
+  ]
+}
