@@ -1,132 +1,113 @@
-import json
-import unittest
+import pytest
 
-from matcher.longest_matches import find_best_matches
-from matcher.match import Match
-from tokenizer.token import Token
-from tokenizer.token_sequence import TokenSequence
-from tokenizer.tokenizer import tokenize_english_text
+from text_comparator.get_text_diff import get_text_deltas
+from tokenizer.context_aware_tokenizer import ContextAwareTokenizer
+from tokenizer.deberta_tokenizer import DebertaTokenizer
+from tokenizer.spacy_tokenizer import spacy_tokenizer
 
 
-class TestLongestContiguousMatches(unittest.TestCase):
+@pytest.fixture
+def tokenizer():
+    deberta = DebertaTokenizer()
+    spacy = spacy_tokenizer()
+    tokenizer = ContextAwareTokenizer(deberta, spacy)
 
-    def test_addition(self):
-        left = 'This is a test'
-        right = 'This is a test with an addition'
-        expected = ['This is a test']
+    return tokenizer
 
-        left_tokens = tokenize_english_text(left)
-        right_tokens = tokenize_english_text(right)
-        matches = find_best_matches(left_tokens, right_tokens)
 
-        self.assertEqual(len(matches), len(expected))
-        for match, expected in zip(matches, expected):
-            self.assertEqual(expected, match.left.text)
-            self.assertEqual(expected, match.right.text)
+@pytest.fixture
+def text_tokens(tokenizer):
+    return lambda tokens: [
+        tokenizer.deberta_tokenizer.tokenizer.convert_ids_to_tokens(token[2])
+        for token in tokens
+    ]
 
-    def test_subtraction(self):
-        left = 'This is a test with subtraction'
-        right = 'This is a test'
-        expected = ['This is a test']
 
-        left_tokens = tokenize_english_text(left)
-        right_tokens = tokenize_english_text(right)
-        matches = find_best_matches(left_tokens, right_tokens)
+@pytest.fixture
+def tokenize(tokenizer):
+    return lambda text: tokenizer.tokenize(text)
 
-        self.assertEqual(len(matches), len(expected))
-        for match, expected in zip(matches, expected):
-            self.assertEqual(expected, match.left.text)
-            self.assertEqual(expected, match.right.text)
 
-    def test_offset_start_left(self):
-        left = ' This is a test'
-        right = 'This is a test'
-        expected = ['This is a test']
+@pytest.mark.unit
+def test_addition(tokenize, text_tokens):
+    left = 'This is a test'
+    right = 'This is a test with an addition'
+    expected_additions = ['with', 'addition']
+    expected_subtractions = []
+    expected_movements = []
 
-        left_tokens = tokenize_english_text(left)
-        right_tokens = tokenize_english_text(right)
-        matches = find_best_matches(left_tokens, right_tokens)
+    left_tokens = tokenize(left)
+    right_tokens = tokenize(right)
+    additions, subtractions, movements = get_text_deltas(left_tokens, right_tokens)
 
-        self.assertEqual(len(matches), len(expected))
-        for match, expected in zip(matches, expected):
-            self.assertEqual(expected, match.left.text)
-            self.assertEqual(expected, match.right.text)
+    assert text_tokens(additions) == expected_additions
+    assert text_tokens(subtractions) == expected_subtractions
+    assert text_tokens([movement[0] for movement in movements]) == expected_movements
 
-    def test_offset_start_right(self):
-        left = 'This is a test'
-        right = ' This is a test'
-        expected = ['This is a test']
 
-        left_tokens = tokenize_english_text(left)
-        right_tokens = tokenize_english_text(right)
-        matches = find_best_matches(left_tokens, right_tokens)
+@pytest.mark.unit
+def test_subtraction(tokenize, text_tokens):
+    left = 'This is a test with subtraction'
+    right = 'This is a test'
+    expected_additions = []
+    expected_subtractions = ['with', 'subtraction']
+    expected_movements = []
 
-        self.assertEqual(len(matches), len(expected))
-        for match, expected in zip(matches, expected):
-            self.assertEqual(expected, match.left.text)
-            self.assertEqual(expected, match.right.text)
+    left_tokens = tokenize(left)
+    right_tokens = tokenize(right)
+    additions, subtractions, movements = get_text_deltas(left_tokens, right_tokens)
 
-    def test_multi(self):
-        left = 'This is a test with a lot of stuff in it This is a test.'
-        right = 'This is a test This is a test with a lot of stuff in it.'
-        expected = [
-            'This is a test with a lot of stuff in it',
-            'This is a test'
-        ]
+    assert text_tokens(additions) == expected_additions
+    assert text_tokens(subtractions) == expected_subtractions
+    assert text_tokens([movement[0] for movement in movements]) == expected_movements
 
-        left_tokens = tokenize_english_text(left)
-        right_tokens = tokenize_english_text(right)
-        matches = find_best_matches(left_tokens, right_tokens)
 
-        self.assertEqual(len(expected), len(matches))
-        for match, expected in zip(matches, expected):
-            self.assertEqual(expected, match.left.text)
-            self.assertEqual(expected, match.right.text)
+@pytest.mark.unit
+def test_multi(tokenize, text_tokens):
+    left = 'This is a test with a lot of stuff in it This is a test.'
+    right = 'This is a test This is a test with a lot of stuff in it.'
+    expected_additions = []
+    expected_subtractions = []
+    expected_movements = [['this', 'is', 'test']]
 
-    def test_multi2(self):
-        left = 'First block. Middle block that should stay unmoved. Third block.'
-        right = 'First block. New prepended text. Middle block that should stay unmoved. Third block.'
-        expected = [
-            'First block',
-            '. Middle block that should stay unmoved. Third block.'
-        ]
+    left_tokens = tokenize(left)
+    right_tokens = tokenize(right)
+    additions, subtractions, movements = get_text_deltas(left_tokens, right_tokens)
 
-        left_tokens = tokenize_english_text(left)
-        right_tokens = tokenize_english_text(right)
-        matches = find_best_matches(left_tokens, right_tokens)
-        self.assertEqual(len(expected), len(matches))
-        for match, expected in zip(matches, expected):
-            self.assertEqual(expected, match.left.text)
-            self.assertEqual(expected, match.right.text)
+    assert text_tokens(additions) == expected_additions
+    assert text_tokens(subtractions) == expected_subtractions
+    assert text_tokens([movement[0] for movement in movements]) == expected_movements
 
-    def test_intersect(self):
-        tokens = [
-            Token("hello", 0),
-            Token(" ", 5),
-            Token("world", 6),
-            Token("!", 11)
-        ]
-        # Create TokenSequences for left and right sides
-        left_seq = TokenSequence(tokens, 1, 2)  # Start at index 1, length 2
-        right_seq = TokenSequence(tokens, 1, 2)  # Start at index 1, length 2
-        match = Match(left_seq, right_seq, 0)  # distance 0 since same position
 
-        self.assertFalse(match.left_intersects_token(Token("hello", 0)))
-        self.assertTrue(match.left_intersects_token(Token(" ", 5)))
-        self.assertTrue(match.left_intersects_token(Token("world", 6)))
-        self.assertFalse(match.left_intersects_token(Token("!", 11)))
+@pytest.mark.unit
+def test_multi2(tokenize, text_tokens):
+    left = 'First block. Middle block that should stay unmoved. Third block.'
+    right = 'First block. New prepended text. Middle block that should stay unmoved. Third block.'
+    expected_additions = ['new', 'prepended', 'text']
+    expected_subtractions = []
+    expected_movements = []
 
-    def test_token_match(self):
-        left_text = 'a b c d m e f g h'
-        right_text = 'e f m g h c d a b'
-        expected = ['a b', ' c d ', 'e f', ' g h']
+    left_tokens = tokenize(left)
+    right_tokens = tokenize(right)
+    additions, subtractions, movements = get_text_deltas(left_tokens, right_tokens)
 
-        left_tokens = tokenize_english_text(left_text)
-        right_tokens = tokenize_english_text(right_text)
+    assert text_tokens(additions) == expected_additions
+    assert text_tokens(subtractions) == expected_subtractions
+    assert text_tokens([movement[0] for movement in movements]) == expected_movements
 
-        matches = find_best_matches(left_tokens, right_tokens)
-        match_text = [match.left.text for match in matches]
-        self.assertEqual(expected, match_text)
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.unit
+def test_token_match(tokenize, text_tokens):
+    left = '1 2 3 4 9 5 6 7 8'
+    right = '5 6 9 7 8 3 4 1 2'
+    expected_additions = ['9']
+    expected_subtractions = ['9']
+    expected_movements = [['3', '4'], ['5', '6'], ['7', '8']]
+
+    left_tokens = tokenize(left)
+    right_tokens = tokenize(right)
+    additions, subtractions, movements = get_text_deltas(left_tokens, right_tokens)
+
+    assert text_tokens(additions) == expected_additions
+    assert text_tokens(subtractions) == expected_subtractions
+    assert text_tokens([movement[0] for movement in movements]) == expected_movements
