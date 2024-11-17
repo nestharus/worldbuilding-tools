@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Text Comparison Tool</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .text-area {
+            width: 48%;
+            height: 40vh;
+            margin: 1%;
+            padding: 10px;
+            resize: none;
+        }
+        #report-area {
+            width: 98%;
+            height: 40vh;
+            margin: 1%;
+            padding: 10px;
+            background-color: #f5f5f5;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="left-text" class="text-area" placeholder="Enter original text here..."></textarea>
+    <textarea id="right-text" class="text-area" placeholder="Enter revised text here..."></textarea>
+    <div id="report-area"></div>
+
+    <script>
+        let timeoutId;
+        
+        function updateReport() {
+            const leftText = document.getElementById('left-text').value;
+            const rightText = document.getElementById('right-text').value;
+            
+            fetch('/compare', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    left_text: leftText,
+                    right_text: rightText
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('report-area').textContent = data.report;
+            });
+        }
+
+        function debounce() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(updateReport, 500);
+        }
+
+        document.getElementById('left-text').addEventListener('input', debounce);
+        document.getElementById('right-text').addEventListener('input', debounce);
+        
+        // Initial update
+        updateReport();
+    </script>
+</body>
+</html>
