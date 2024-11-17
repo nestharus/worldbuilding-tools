@@ -276,38 +276,39 @@ class ModelInstaller:
                         if model_found:
                             self.logger.info(f"Updates available for {current_model}")
 
-            self.logger.info(f"Downloading Hugging Face model: {current_model}")
-            
-            # DeBERTa models required files
-            files_to_download = [
-                "config.json",
-                "tokenizer_config.json", 
-                "spm.model",
-            ]
-            
-            # Check for model formats
-            safetensors_url = f"https://huggingface.co/{current_model}/resolve/main/model.safetensors"
-            pytorch_url = f"https://huggingface.co/{current_model}/resolve/main/pytorch_model.bin"
-            
-            # Try both formats
-            safetensors_response = requests.head(safetensors_url)
-            pytorch_response = requests.head(pytorch_url)
-            
-            if safetensors_response.status_code == 200:
-                self.logger.info("Safetensors model available")
-                files_to_download.append("model.safetensors")
-            elif pytorch_response.status_code == 200:
-                self.logger.info("PyTorch model available")
-                files_to_download.append("pytorch_model.bin")
-            else:
-                self.logger.warning(f"No compatible model format found for {current_model}, trying next option")
-                continue  # Try next model in the list
-            except requests.exceptions.RequestException as e:
-                self.logger.error(f"Error checking model availability: {e}")
-                if "large" in model_name.lower():
-                    base_model = model_name.replace("large", "base")
-                    self.logger.info(f"Connection error, trying fallback model: {base_model}")
-                    return self.install_hf_model(base_model, force_update)
+                    self.logger.info(f"Downloading Hugging Face model: {current_model}")
+                    
+                    # DeBERTa models required files
+                    files_to_download = [
+                        "config.json",
+                        "tokenizer_config.json", 
+                        "spm.model",
+                    ]
+                    
+                    # Check for model formats
+                    safetensors_url = f"https://huggingface.co/{current_model}/resolve/main/model.safetensors"
+                    pytorch_url = f"https://huggingface.co/{current_model}/resolve/main/pytorch_model.bin"
+                    
+                    # Try both formats
+                    safetensors_response = requests.head(safetensors_url)
+                    pytorch_response = requests.head(pytorch_url)
+                    
+                    if safetensors_response.status_code == 200:
+                        self.logger.info("Safetensors model available")
+                        files_to_download.append("model.safetensors")
+                    elif pytorch_response.status_code == 200:
+                        self.logger.info("PyTorch model available")
+                        files_to_download.append("pytorch_model.bin")
+                    else:
+                        self.logger.warning(f"No compatible model format found for {current_model}, trying next option")
+                        continue  # Try next model in the list
+
+                except requests.exceptions.RequestException as e:
+                    self.logger.error(f"Error checking model availability: {e}")
+                    if "large" in model_name.lower():
+                        base_model = model_name.replace("large", "base")
+                        self.logger.info(f"Connection error, trying fallback model: {base_model}")
+                        return self.install_hf_model(base_model, force_update)
                 return False
             
             # Create a sanitized directory name without extra slashes
