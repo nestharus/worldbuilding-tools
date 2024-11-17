@@ -3,6 +3,6 @@
   "sdk": "python",
   "root": ".",
   "dependencies": [
-    "ci"
+    "./ci"
   ]
 }
