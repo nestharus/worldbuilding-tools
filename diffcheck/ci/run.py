@@ -15,8 +15,11 @@ async def main():
             .with_directory("/app", client.host().directory(".", exclude=["ci/", "test/"]))
         )
 
+        # Install git for model downloads
         runner = (source
             .with_workdir("/app")
+            .with_exec(["apt-get", "update"])
+            .with_exec(["apt-get", "install", "-y", "git"])
             .with_exec(["pip", "install", "pipenv"])
             .with_exec(["pipenv", "lock"])
             .with_exec(["pipenv", "install", "--deploy"])
