@@ -1,23 +1,36 @@
-import subprocess
-import os
+import sys
+import anyio
+import dagger
 
-def build():
-    """Build the Docker image"""
-    try:
-        subprocess.run([
-            "docker", "build",
-            "-t", "diffcheck:latest",
-            "."
-        ], check=True)
+async def build():
+    """Build the Docker image using Dagger"""
+    async with dagger.Connection(dagger.Config(log_output=sys.stderr)) as client:
+        # Get reference to the local project
+        src = client.host().directory(".")
+        
+        # Create Python container
+        python = (
+            client.container()
+            .from_("python:3.11-slim")
+            .with_workdir("/app")
+            .with_exec(["pip", "install", "pipenv"])
+            .with_directory("/app", src)
+            .with_exec(["pipenv", "install", "--deploy"])
+            .with_exec(["pipenv", "run", "setup"])
+            .with_env_variable("FLASK_ENV", "production")
+            .with_exposed_port(5000)
+            .with_entrypoint(["pipenv", "run", "start"])
+        )
+
+        # Export the container
+        await python.publish("diffcheck:latest")
         print("Docker image built successfully")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error building Docker image: {e}")
-        return False
 
-def run():
+async def run():
     """Run the Docker container"""
     try:
+        import subprocess
         subprocess.run([
             "docker", "run",
             "-p", "5000:5000",
@@ -29,8 +42,6 @@ def run():
         return False
 
 if __name__ == "__main__":
-    import sys
-    
     if len(sys.argv) < 2:
         print("Usage: python dagger.py [build|run]")
         sys.exit(1)
@@ -38,12 +49,10 @@ if __name__ == "__main__":
     command = sys.argv[1]
     
     if command == "build":
-        success = build()
+        anyio.run(build)
     elif command == "run":
-        success = run()
+        anyio.run(run)
     else:
         print(f"Unknown command: {command}")
         print("Available commands: build, run")
-        success = False
-        
-    sys.exit(0 if success else 1)
+        sys.exit(1)
