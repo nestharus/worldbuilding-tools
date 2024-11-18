@@ -256,8 +256,8 @@ class ModelInstaller:
                         if files_present:
                             needs_update = self._check_hf_model_update(current_model)
                             if not needs_update:
-                            self.logger.info(f"Model {current_model} is up to date")
-                            return True
+                                self.logger.info(f"Model {current_model} is up to date")
+                                return True
                             
                         if model_found:
                             self.logger.info(f"Updates available for {current_model}")
