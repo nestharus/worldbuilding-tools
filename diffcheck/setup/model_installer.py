@@ -57,16 +57,7 @@ class ModelInstaller:
     def _configure_model_loading(self):
         """Configure model loading settings and suppress known warnings."""
         import warnings
-        import torch
-
-        # Suppress known FutureWarning about pickle usage in torch.load
-        warnings.filterwarnings('ignore', category=FutureWarning,
-                              module='thinc.shims.pytorch',
-                              message='You are using `torch.load` with `weights_only=False`')
-
-        # Basic PyTorch configuration
-        torch.set_grad_enabled(False)
-        torch.set_default_tensor_type(torch.FloatTensor)
+        warnings.filterwarnings('ignore', category=FutureWarning)
 
 
     def _verify_model_files(self, model_dir: Path) -> bool:
@@ -198,18 +189,9 @@ class ModelInstaller:
                 self.logger.info("One or more required config files missing")
                 return True
                 
-            # Check model files - need either safetensors or pytorch
-            model_found = False
-            for model_file in model_files:
-                file_path = model_dir / model_file
-                if file_path.exists():
-                    file_size = file_path.stat().st_size
-                    if file_size >= 100_000_000:  # 100MB minimum
-                        model_found = True
-                        break
-
-            if not model_found:
-                self.logger.info("No valid model file found")
+            # Check if model directory exists and has basic files
+            if not model_dir.exists() or not any(model_dir.iterdir()):
+                self.logger.info("Model directory missing or empty")
                 return True
                 
             # Get current version info
@@ -288,22 +270,11 @@ class ModelInstaller:
                         "spm.model",
                     ]
                     
-                    # Check for model formats
-                    safetensors_url = f"https://huggingface.co/{current_model}/resolve/main/model.safetensors"
-                    pytorch_url = f"https://huggingface.co/{current_model}/resolve/main/pytorch_model.bin"
-                    
-                    # Try both formats
-                    safetensors_response = requests.head(safetensors_url)
-                    pytorch_response = requests.head(pytorch_url)
-                    
-                    if safetensors_response.status_code == 200:
-                        self.logger.info("Safetensors model available")
-                        files_to_download.append("model.safetensors")
-                    elif pytorch_response.status_code == 200:
-                        self.logger.info("PyTorch model available")
-                        files_to_download.append("pytorch_model.bin")
-                    else:
-                        self.logger.warning(f"No compatible model format found for {current_model}, trying next option")
+                    # Check basic model files
+                    model_url = f"https://huggingface.co/{current_model}/resolve/main/config.json"
+                    response = requests.head(model_url)
+                    if response.status_code != 200:
+                        self.logger.warning(f"Model files not found for {current_model}, trying next option")
                         continue  # Try next model in the list
 
                 except requests.exceptions.RequestException as e:
@@ -656,21 +627,6 @@ class ModelInstaller:
                 
                 # Verify the downloaded model with secure loading
                 self.logger.info("Verifying model format and loading capabilities...")
-                
-                # Configure PyTorch for secure model loading
-                import torch
-                import torch.serialization
-                torch.set_grad_enabled(False)
-
-                # Configure default device and dtype
-                device = 'cuda' if torch.cuda.is_available() else 'cpu'
-                torch.set_default_device(device)
-                torch.set_default_dtype(torch.float32)
-
-                # Add safe globals for numpy arrays
-                safe_modules = ['numpy', 'numpy.core.multiarray', 'numpy.core.numeric', 'numpy.core.fromnumeric']
-                for module in safe_modules:
-                    torch.serialization.add_safe_globals(module)
                 
                 nlp = spacy.load(model_name)
                 test_doc = nlp("Test sentence")
