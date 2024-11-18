@@ -249,21 +249,13 @@ class ModelInstaller:
                     if not force_update and f"hf_{current_model}" in self.versions:
                         model_dir = self.cache_dir / current_model.replace('/', '-')
                         
-                        # Check for either safetensors or pytorch format
-                        model_files = ["model.safetensors", "pytorch_model.bin"]
-                        model_found = False
-
-                        for model_file in model_files:
-                            model_path = model_dir / model_file
-                            if model_path.exists():
-                                size_gb = model_path.stat().st_size / (1024**3)
-                                if size_gb >= 0.1:  # 100MB minimum
-                                    self.logger.info(f"Found existing {model_file}: {size_gb:.2f} GB")
-                                    needs_update = self._check_hf_model_update(current_model)
-                                    model_found = True
-                                    break
-
-                        if model_found and not needs_update:
+                        # Check for tokenizer files
+                        tokenizer_files = ["config.json", "tokenizer_config.json", "spm.model"]
+                        files_present = all((model_dir / file).exists() for file in tokenizer_files)
+                        
+                        if files_present:
+                            needs_update = self._check_hf_model_update(current_model)
+                            if not needs_update:
                             self.logger.info(f"Model {current_model} is up to date")
                             return True
                             
