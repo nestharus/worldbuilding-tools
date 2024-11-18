@@ -453,7 +453,6 @@ class ModelInstaller:
             try:
                 # Verify all required files exist and are valid
                 required_files = ["config.json", "tokenizer_config.json", "spm.model"]
-                model_files = ["model.safetensors", "pytorch_model.bin"]
                 
                 self.logger.info(f"Verifying required files for {model_name}")
                 
