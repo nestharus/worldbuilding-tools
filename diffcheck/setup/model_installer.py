@@ -139,10 +139,6 @@ class ModelInstaller:
                             break
             else:  # DeBERTa model
                 success = self.install_hf_model(model_name, force_update)
-                if not success and model_name != 'microsoft/deberta-v3-base':
-                    # Try fallback DeBERTa model
-                    self.logger.info("Trying fallback DeBERTa model: deberta-v3-base")
-                    success = self.install_hf_model('microsoft/deberta-v3-base', force_update)
 
             completed_steps += 1
             if not success:
@@ -220,21 +216,34 @@ class ModelInstaller:
             self.logger.warning(f"Failed to check updates for {model_name}: {e}")
             return False
 
+    @staticmethod
+    def get_deberta_models(target_model: str):
+        api = HfApi()
+        models = api.list_models(filter="deberta")
+
+        model_info_list = [
+            (
+                model.modelId,
+                api.model_info(model.modelId).model_size
+                if hasattr(api.model_info(model.modelId), 'model_size')
+                else 0
+            )
+            for model in models
+        ]
+        target_size = next((size for model, size in model_info_list if model == target_model), None)
+        if target_size is None:
+            raise ValueError(f"Target model {target_model} not found")
+        model_info_list = [model for model, size in model_info_list if size <= target_size]
+
+        return sorted(model_info_list, key=lambda x: x[1], reverse=True)
+
     def install_hf_model(self, model_name: str, force_update: bool = False) -> bool:
         """Install a Hugging Face model."""
         try:
             # Start with requested model, then try fallbacks if it fails
-            model_options = [model_name]  # Try requested model first
+            models = self.get_deberta_models(model_name)
             
-            # Only add fallbacks if the requested model isn't already one
-            if model_name not in ["microsoft/deberta-v3-xsmall", "microsoft/deberta-v3-small"]:
-                model_options.extend([
-                    "microsoft/deberta-v3-base",  # Try base model first
-                    "microsoft/deberta-v3-small",
-                    "microsoft/deberta-v3-xsmall"  # Smallest as last resort
-                ])
-            
-            for current_model in model_options:
+            for current_model in models:
                 try:
                     needs_update = force_update
                     if not force_update and f"hf_{current_model}" in self.versions:
