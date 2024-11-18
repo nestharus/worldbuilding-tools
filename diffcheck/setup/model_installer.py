@@ -482,22 +482,7 @@ class ModelInstaller:
                     else:
                         self.logger.info(f"Verified file exists: {file}")
                 
-                # Check model files - try safetensors first, fall back to PyTorch
-                safetensors_path = model_dir / "model.safetensors"
-                pytorch_path = model_dir / "pytorch_model.bin"
-                
-                if safetensors_path.exists():
-                    file_size = safetensors_path.stat().st_size
-                    if file_size < 100_000_000:  # 100MB minimum size
-                        raise ValueError(f"Safetensors file too small: {file_size / 1_000_000:.1f} MB")
-                    self.logger.info(f"Verified model.safetensors size: {file_size / 1_000_000:.1f} MB")
-                elif pytorch_path.exists():
-                    file_size = pytorch_path.stat().st_size
-                    if file_size < 100_000_000:  # 100MB minimum size
-                        raise ValueError(f"PyTorch model file too small: {file_size / 1_000_000:.1f} MB")
-                    self.logger.info(f"Verified pytorch_model.bin size: {file_size / 1_000_000:.1f} MB")
-                else:
-                    raise FileNotFoundError("No valid model file found (tried safetensors and PyTorch formats)")
+                # We only need tokenizer files, no tensor files required
 
                 # Attempt to load the tokenizer, but only from local files since we just downloaded them
                 self.logger.info(f"Verifying tokenizer for {model_name}")
