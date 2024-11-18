@@ -258,8 +258,6 @@ class ModelInstaller:
                             if not needs_update:
                                 self.logger.info(f"Model {current_model} is up to date")
                                 return True
-                            
-                        if model_found:
                             self.logger.info(f"Updates available for {current_model}")
 
                     self.logger.info(f"Downloading Hugging Face model: {current_model}")
