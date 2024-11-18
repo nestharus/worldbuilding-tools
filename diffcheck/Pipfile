@@ -6,34 +6,17 @@ name = "pypi"
 [packages]
 transformers = "4.46.2"
 flask = "3.0.3"
-linkeds = "1.0.0"
 spacy = "3.8.2"
-torch = {version = "==2.5.1"}
-tqdm = "4.67.0"
-requests = "2.32.3"
-huggingface-hub = "0.26.2"
-psutil = "6.1.0"
-rich = "13.9.4"
-protobuf = "5.28.3"
 sentencepiece = "0.2.0"
-safetensors = "0.4.5"
-scikit-learn = "1.5.2"
 
 [dev-packages]
 pytest = "8.3.3"
-datasets = "3.1.0"
-nltk = "3.9.1"
-matplotlib = "3.9.2"
 
 [requires]
 python_version = "3.12"
-python_full_version = "3.12.1"
+python_full_version = "3.12.7"
 
 [scripts]
-start = "set PYTHONPATH=src && python -m visualization.server"
+start = "set PYTHONPATH=src && python ./src/web_app.py"
 test = "pytest"
-setup = "python ./setup/setup.py"
-update = "python ./setup/setup.py --force-update"
-check-system = "python ./setup/system_check.py"
-cleanup = "python ./setup/cleanup.py"
-verify = "python ./setup/cleanup.py --verify"
+setup = "python ./setup/download_spacy.py"

@@ -11,16 +11,25 @@
             min-height: 100vh;
             box-sizing: border-box;
         }
+
+        /* Add a container for the text areas */
+        .text-area-container {
+            display: flex;
+            width: 100%;
+            gap: 2%; /* Creates space between the text areas */
+        }
+
         .text-area {
-            width: 48%;
-            height: 40vh;
-            margin: 1%;
+            flex: 1; /* Makes both text areas take up equal space */
+            height: 50vh;
             padding: 10px;
             resize: none;
+            margin: 0 0 1% 0; /* Changed margin to only have bottom */
         }
+
         #report-area {
             width: 98%;
-            height: 40vh;
+            height: 50vh;
             margin: 1%;
             padding: 10px;
             background-color: #f5f5f5;
@@ -31,8 +40,10 @@
     </style>
 </head>
 <body>
-    <textarea id="left-text" class="text-area" placeholder="Enter original text here..."></textarea>
-    <textarea id="right-text" class="text-area" placeholder="Enter revised text here..."></textarea>
+    <div class="text-area-container">
+        <textarea id="left-text" class="text-area" placeholder="Enter original text here..."></textarea>
+        <textarea id="right-text" class="text-area" placeholder="Enter revised text here..."></textarea>
+    </div>
     <div id="report-area"></div>
 
     <script>

@@ -43,6 +43,18 @@ def get_text_deltas(left_tokens: list[SpanToken], right_tokens: list[SpanToken])
         if span[1] - span[0] > 1
         for i in range(span[0], span[1])
     ]
+    left_tokens_dif_singles = [
+        left_tokens[i]
+        for span in left_spans
+        if span[1] - span[0] == 1
+        for i in range(span[0], span[1])
+    ]
+    right_tokens_dif_singles = [
+        right_tokens[i]
+        for span in right_spans
+        if span[1] - span[0] == 1
+        for i in range(span[0], span[1])
+    ]
     left_token_ids_dif = [token[2] for token in left_tokens_dif]
     right_token_ids_dif = [token[2] for token in right_tokens_dif]
     matching_spans = find_best_matching_spans(left_token_ids_dif, right_token_ids_dif)
@@ -54,6 +66,8 @@ def get_text_deltas(left_tokens: list[SpanToken], right_tokens: list[SpanToken])
             for span in matching_spans
         )
     ]
+    subtractions.extend(left_tokens_dif_singles)
+    subtractions.sort(key=lambda token: token[0])
     additions = [
         token
         for i, token in enumerate(right_tokens_dif)
@@ -62,6 +76,8 @@ def get_text_deltas(left_tokens: list[SpanToken], right_tokens: list[SpanToken])
             for span in matching_spans
         )
     ]
+    additions.extend(right_tokens_dif_singles)
+    additions.sort(key=lambda token: token[0])
     movements = [
         tuple((
             tuple((

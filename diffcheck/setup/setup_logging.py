@@ -17,7 +17,5 @@ def setup_rich_logging():
 
     # Set logging levels for specific modules
     logging.getLogger("huggingface_hub").setLevel(logging.INFO)
-    logging.getLogger("transformers").setLevel(logging.INFO)
-    logging.getLogger("spacy").setLevel(logging.INFO)
 
     return logging.getLogger(__name__)

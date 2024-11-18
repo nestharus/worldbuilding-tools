@@ -1,12 +1,9 @@
 import logging
 from typing import Union
 
-import numpy as np
-import torch
 from spacy import Language
 from spacy.language import PipeCallable
 from spacy.tokens import Token
-from thinc.compat import tensorflow
 
 from tokenizer.deberta_tokenizer import DebertaTokenizer
 
@@ -29,14 +26,14 @@ class ContextAwareTokenizer:
     logger: logging.Logger
     spacy_tokenizer: Language
     deberta_tokenizer: DebertaTokenizer
-    transformer: PipeCallable
+    # transformer: PipeCallable
 
     def __init__(self, deberta_tokenizer: DebertaTokenizer, spacy_tokenizer: Language):
         self.logger = logging.getLogger(__name__)
 
         self.deberta_tokenizer = deberta_tokenizer
         self.spacy_tokenizer = spacy_tokenizer
-        self.transformer = self.spacy_tokenizer.get_pipe("transformer")
+        # self.transformer = self.spacy_tokenizer.get_pipe("transformer")
 
     def to_text(self, word_id: int) -> str:
         """Convert tokens back to text"""
@@ -90,36 +87,36 @@ class ContextAwareTokenizer:
         text = ''.join(deberta_token[2] for deberta_token in deberta_tokens)
         return start_pos, end_pos, text, pos, dep
 
-    def analyze_compound(self, doc, token) -> bool:
-        """
-        Determine if compound is compositional using transformer embeddings
-        Returns True if compositional, False if lexical
-        """
-        if token.dep_ != "compound":
-            return False
-
-        # Get transformer embeddings
-        outputs = self.transformer.predict([doc])
-        hidden_states = outputs.last_hidden_layer_states[0]
-
-        # Convert to torch tensors and flatten
-        compound_embedding = torch.tensor(hidden_states[token.i].dataXd).unsqueeze(0)
-        head_embedding = torch.tensor(hidden_states[token.head.i].dataXd).unsqueeze(0)
-
-        # Ensure both embeddings have the same size along dimension 1
-        min_size = min(compound_embedding.size(1), head_embedding.size(1))
-        compound_embedding = compound_embedding[:, :min_size]
-        head_embedding = head_embedding[:, :min_size]
-
-        # Calculate cosine similarity
-        similarity = torch.nn.functional.cosine_similarity(
-            compound_embedding,
-            head_embedding,
-            dim=1
-        ).mean().item()
-
-        # print(f'{similarity} > 0.494')
-        return similarity > 0.494  # Return True if compositional
+    # def analyze_compound(self, doc, token) -> bool:
+    #     """
+    #     Determine if compound is compositional using transformer embeddings
+    #     Returns True if compositional, False if lexical
+    #     """
+    #     if token.dep_ != "compound":
+    #         return False
+    #
+    #     # Get transformer embeddings
+    #     outputs = self.transformer.predict([doc])
+    #     hidden_states = outputs.last_hidden_layer_states[0]
+    #
+    #     # Convert to torch tensors and flatten
+    #     compound_embedding = torch.tensor(hidden_states[token.i].dataXd).unsqueeze(0)
+    #     head_embedding = torch.tensor(hidden_states[token.head.i].dataXd).unsqueeze(0)
+    #
+    #     # Ensure both embeddings have the same size along dimension 1
+    #     min_size = min(compound_embedding.size(1), head_embedding.size(1))
+    #     compound_embedding = compound_embedding[:, :min_size]
+    #     head_embedding = head_embedding[:, :min_size]
+    #
+    #     # Calculate cosine similarity
+    #     similarity = torch.nn.functional.cosine_similarity(
+    #         compound_embedding,
+    #         head_embedding,
+    #         dim=1
+    #     ).mean().item()
+    #
+    #     # print(f'{similarity} > 0.494')
+    #     return similarity > 0.494  # Return True if compositional
 
     def tokenize(self, text: str) -> list[SpanToken]:
         """Context-aware tokenization using DeBERTa and spaCy's analysis."""

@@ -6,7 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/diffcheck/test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/diffcheck/setup" isTestSource="false" />
     </content>
-    <orderEntry type="inheritedJdk" />
+    <orderEntry type="jdk" jdkName="Python 3.12 virtualenv at C:\Users\xteam\.virtualenvs\ci-kPv8Jk-e" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">
