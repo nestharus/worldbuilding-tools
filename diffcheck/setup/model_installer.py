@@ -2,7 +2,6 @@ import json
 import logging
 import requests
 import spacy
-import pkg_resources
 from pathlib import Path
 from huggingface_hub import HfApi
 from rich.console import Console
@@ -59,12 +58,12 @@ class ModelInstaller:
         """Configure model loading settings and suppress known warnings."""
         import warnings
         import torch
-        
+
         # Suppress known FutureWarning about pickle usage in torch.load
-        warnings.filterwarnings('ignore', category=FutureWarning, 
+        warnings.filterwarnings('ignore', category=FutureWarning,
                               module='thinc.shims.pytorch',
                               message='You are using `torch.load` with `weights_only=False`')
-        
+
         # Basic PyTorch configuration
         torch.set_grad_enabled(False)
         torch.set_default_tensor_type(torch.FloatTensor)
@@ -208,7 +207,7 @@ class ModelInstaller:
                     if file_size >= 100_000_000:  # 100MB minimum
                         model_found = True
                         break
-            
+
             if not model_found:
                 self.logger.info("No valid model file found")
                 return True
@@ -262,7 +261,7 @@ class ModelInstaller:
                         # Check for either safetensors or pytorch format
                         model_files = ["model.safetensors", "pytorch_model.bin"]
                         model_found = False
-                        
+
                         for model_file in model_files:
                             model_path = model_dir / model_file
                             if model_path.exists():
@@ -272,7 +271,7 @@ class ModelInstaller:
                                     needs_update = self._check_hf_model_update(current_model)
                                     model_found = True
                                     break
-                                    
+
                         if model_found and not needs_update:
                             self.logger.info(f"Model {current_model} is up to date")
                             return True
@@ -523,12 +522,6 @@ class ModelInstaller:
                 # Attempt to load the tokenizer, but only from local files since we just downloaded them
                 self.logger.info(f"Verifying tokenizer for {model_name}")
                 try:
-                    try:
-                        import sentencepiece
-                    except ImportError:
-                        self.logger.error("sentencepiece library is required for DeBERTa tokenizer but not installed")
-                        raise ImportError("Please install sentencepiece: pip install sentencepiece")
-                        
                     tokenizer = AutoTokenizer.from_pretrained(
                         str(model_dir),
                         local_files_only=True,  # Force local files only
@@ -668,12 +661,12 @@ class ModelInstaller:
                 import torch
                 import torch.serialization
                 torch.set_grad_enabled(False)
-                
+
                 # Configure default device and dtype
                 device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 torch.set_default_device(device)
                 torch.set_default_dtype(torch.float32)
-                
+
                 # Add safe globals for numpy arrays
                 safe_modules = ['numpy', 'numpy.core.multiarray', 'numpy.core.numeric', 'numpy.core.fromnumeric']
                 for module in safe_modules:
